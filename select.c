@@ -17,7 +17,6 @@
 #include <signal.h>
 #include <stdbool.h>
 
-#define MAX_FD_NUM 512
 #define FLOCK_FILE "/tmp/.file_lock_123"
 
 static void usage(char *cmd)
@@ -131,7 +130,7 @@ static void worker_process(int fd, bool use_flock, bool accept_noblock)
 			if (FD_ISSET(listen_fd, &rfds)) {
 				len = sizeof(struct sockaddr);
 
-				printf("worker %d fd is readable\n", getpid());
+				printf("worker %d fd is readable for accept\n", getpid());
 
 				if (use_flock) {
 					if (flock(file_fd, LOCK_EX) == -1) {
