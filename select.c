@@ -177,8 +177,6 @@ static void worker_process(int fd, bool use_flock, bool accept_noblock)
 
 				FD_SET(fd, &rfds_orig);
 			} else {
-				bool readable = false;
-
 				for (i = 0; i < FD_SETSIZE; i++) {
 					fd = i;
 					if (FD_ISSET(fd, &rfds)) {
@@ -190,7 +188,6 @@ static void worker_process(int fd, bool use_flock, bool accept_noblock)
 						}
 
 						ret = read(fd, buffer, sizeof(buffer) - 1);
-						readable = true;
 
 						switch (ret) {
 						case 0:
@@ -211,10 +208,6 @@ static void worker_process(int fd, bool use_flock, bool accept_noblock)
 							}
 						}
 					}
-				}
-
-				if (!readable) {
-					printf("worker %d: no fd is readable, ignore..\n", getpid());
 				}
 			}
 			break;
