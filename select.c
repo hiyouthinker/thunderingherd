@@ -28,6 +28,8 @@ static void usage(char *cmd)
 	printf("\t-r\tenable reuseaddr\n");
 	printf("\t-R\tenable reuseport\n");
 	printf("\t-w\tworker number\n");
+	printf("\t-f\tuse flock for thunderingherd\n");
+	printf("\t-n\tuse nonblock attribute for thunderingherd\n");
 
 	exit(EXIT_SUCCESS);
 }
