@@ -17,8 +17,6 @@
 #include <signal.h>
 #include <stdbool.h>
 
-#define FLOCK_FILE "/tmp/.file_lock_123"
-
 static void usage(char *cmd)
 {
 	printf("usage: %s\n", cmd);
@@ -28,69 +26,10 @@ static void usage(char *cmd)
 	printf("\t-r\tenable reuseaddr\n");
 	printf("\t-R\tenable reuseport\n");
 	printf("\t-w\tworker number\n");
-	printf("\t-f\tuse flock for thunderingherd\n");
-	printf("\t-n\tuse nonblock attribute for thunderingherd\n");
 
 	exit(EXIT_SUCCESS);
 }
 
-static void set_socket_nonblock(int fd)
-{
-	int flags = fcntl(fd, F_GETFL, 0);
-	if (flags < 0) {
-		perror("fcntl for F_GETFL");
-		exit(EXIT_FAILURE);
-	}
-
-	flags = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-	if (flags < 0) {
-		perror("fcntl for F_SETFL");
-		exit(EXIT_FAILURE);
-	}
-}
-
-static int open_flock_file()
-{
-	int fd = open(FLOCK_FILE, O_RDWR | O_CREAT, 0666);
-	if (fd == -1) {
-		printf("failed to open file: %s\n", strerror(errno));
-		exit(EXIT_FAILURE);
-	}
-
-	return fd;
-}
-
-static bool fd_is_readable(int fd)
-{
-	struct timeval tv = {
-		.tv_sec = 0,
-		.tv_usec = 0,
-	};
-	fd_set rfds;
-	int nfds = 0, ret;
-
-	FD_ZERO(&rfds);
-	FD_SET(fd, &rfds);
-
-	if (nfds <= fd)
-		nfds = fd + 1;
-
-	ret = select(nfds, &rfds, NULL, NULL, &tv);
-	
-	switch(ret) {
-	case 0:
-	//	printf("fd %d is not readable\n", fd);
-		return false;
-	case 1:
-	//	printf("fd %d is readable\n", fd);
-		return true;
-	default:
-		printf("failed to select fd %d: %s\n", fd, strerror(errno));
-		break;
-	}
-
-	return false;
-}
 static void worker_process_accept(int fd)
 {
 	int nfds = 0;
@@ -166,7 +105,7 @@ static void worker_process_listen(int fd)
 	while (1) {
 		struct sockaddr_in addr;
 		int len = sizeof(struct sockaddr);
-		int pid;
+		int pid, accept_fd;
 
 		/*
 		 * https://elixir.bootlin.com/linux/v2.6.32/source/kernel/wait.c#L86
@@ -174,8 +113,8 @@ static void worker_process_listen(int fd)
 		 * 		 	wait->flags |= WQ_FLAG_EXCLUSIVE;
 		 *			__add_wait_queue_tail(q, wait);
 		 */
-		fd = accept(fd, (struct sockaddr *)&addr, (socklen_t *)&len);
-		if (fd < 0) {
+		accept_fd = accept(fd, (struct sockaddr *)&addr, (socklen_t *)&len);
+		if (accept_fd < 0) {
 			printf("failed to accept: %s\n", strerror(errno));
 			exit(EXIT_FAILURE);
 		}
@@ -189,7 +128,7 @@ static void worker_process_listen(int fd)
 			exit(EXIT_FAILURE);
 		case 0:/* child */
 			printf("worker %d started for accept socket\n", getpid());
-			worker_process_accept(fd);
+			worker_process_accept(accept_fd);
 			break;
 		default:/* parent */
 			break;
@@ -206,9 +145,8 @@ int main(int argc, char *argv[])
 	int keepalive_interval = 3, keepalive = 0, one = 1;
 	int tcp_fast_open = -1;
 	int worker = 2, i;
-	bool use_flock = false, accept_noblock = false;
 
-	while ((opt = getopt(argc, argv, "l:p:rRw:fnh")) != -1) {
+	while ((opt = getopt(argc, argv, "l:p:rRw:h")) != -1) {
 		switch (opt) {
 		case 'l':
 			local_ip = optarg;
@@ -228,20 +166,6 @@ int main(int argc, char *argv[])
 			worker = atoi(optarg);
 			if (worker <= 0)
 				worker = 2;
-			break;
-		case 'f':
-			use_flock = true;
-			if (accept_noblock) {
-				printf("-f and -n are in conflict\n");
-				usage(argv[0]);
-			}
-			break;
-		case 'n':
-			accept_noblock = true;
-			if (use_flock) {
-				printf("-f and -n are in conflict\n");
-				usage(argv[0]);
-			}
 			break;
 		default:
 		case 'h':
@@ -263,10 +187,6 @@ int main(int argc, char *argv[])
 	if (reuseport && setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one)) < 0) {
 		perror("setsockopt for reuseport");
 		goto error;
-	}
-
-	if (accept_noblock) {
-		set_socket_nonblock(fd);
 	}
 
 	memset(&addr, 0, sizeof(addr));
