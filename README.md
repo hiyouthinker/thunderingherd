@@ -20,6 +20,6 @@ sudo ./epoll -w 2 -p 9000
 ```
 ## accept
 ```
-# for kernel version >= 2.6, accept does not have the thundering herd problem
+# for kernel version >= 2.4.0, accept does not have the thundering herd problem
 sudo ./accept -w 2 -p 9000
 ```

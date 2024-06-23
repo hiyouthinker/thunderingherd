@@ -112,6 +112,7 @@ static void worker_process_listen(int fd)
 		 * 		use WQ_FLAG_EXCLUSIVE flag to avoid thundering herd
 		 * 		 	wait->flags |= WQ_FLAG_EXCLUSIVE;
 		 *			__add_wait_queue_tail(q, wait);
+		 * https://elixir.bootlin.com/linux/2.4.0/source/net/ipv4/tcp.c#L2015
 		 */
 		accept_fd = accept(fd, (struct sockaddr *)&addr, (socklen_t *)&len);
 		if (accept_fd < 0) {
